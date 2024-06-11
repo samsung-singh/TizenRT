@@ -964,7 +964,6 @@ int eckey_sign_wrap(void *ctx, mbedtls_md_type_t md_alg,
 		mbedtls_ecdsa_free(&ecdsa);
 		return MBEDTLS_ERR_ECP_INVALID_KEY;
 	}
-	key_idx = (((mbedtls_ecp_keypair *) ctx)->grp).key_index;
 
 	curve = ecdsa.grp.id;
 	mbedtls_ecdsa_free(&ecdsa);
@@ -1042,7 +1041,7 @@ int eckey_sign_wrap(void *ctx, mbedtls_md_type_t md_alg,
 			return MBEDTLS_ERR_ECP_HW_ACCEL_FAILED;
 		}
 	}
-
+	key_idx = (((mbedtls_ecp_keypair *) ctx)->grp).key_index;
 	ret = sl_ecdsa_sign_md(shnd, ecdsa_mode, &t_hash, key_idx, &sign);
 	if (!is_injected_key) {
 		sl_remove_key(shnd, key_type, key_idx);
