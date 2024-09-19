@@ -127,6 +127,9 @@ void up_reprioritize_rtr(struct tcb_s *tcb, uint8_t priority)
 
       if (switch_needed)
         {
+#ifdef CONFIG_TASK_SCHED_HISTORY
+      		save_task_blocking_status(tcb);
+#endif
           /* If we are going to do a context switch, then now is the right
            * time to add any pending tasks back into the ready-to-run list.
            */
@@ -176,10 +179,6 @@ void up_reprioritize_rtr(struct tcb_s *tcb, uint8_t priority)
           else
             {
               struct tcb_s *nexttcb = this_task();
-#ifdef CONFIG_TASK_SCHED_HISTORY
-				/* Save the task name which will be scheduled */
-				save_task_scheduling_status(nexttcb);
-#endif
 
               /* Update scheduler parameters */
 

@@ -78,6 +78,9 @@ void up_release_pending(void)
 
   if (sched_mergepending())
     {
+#ifdef CONFIG_TASK_SCHED_HISTORY
+      save_task_blocking_status(rtcb);
+#endif
       /* The currently active task has changed!  We will need to
        * switch contexts.
        */
@@ -122,10 +125,6 @@ void up_release_pending(void)
       else
         {
           struct tcb_s *nexttcb = this_task();
-#ifdef CONFIG_TASK_SCHED_HISTORY
-			/* Save the task name which will be scheduled */
-			save_task_scheduling_status(nexttcb);
-#endif
 
           /* Update scheduler parameters */
 

@@ -90,7 +90,7 @@ struct amebasmart_gpt_lowerhalf_s {
  ****************************************************************************/
 static int amebasmart_gpt_start(struct timer_lowerhalf_s *lower);
 static int amebasmart_gpt_stop(struct timer_lowerhalf_s *lower);
-static int amebasmart_gpt_getstatus(struct timer_lowerhalf_s *lower, struct timer_status_s *status);
+int amebasmart_gpt_getstatus(struct timer_lowerhalf_s *lower, struct timer_status_s *status);
 static int amebasmart_gpt_settimeout(struct timer_lowerhalf_s *lower, uint32_t timeout);
 static void amebasmart_gpt_setcallback(struct timer_lowerhalf_s *lower, CODE tccb_t callback, void *arg);
 static int amebasmart_gpt_ioctl(struct timer_lowerhalf_s *lower, int cmd, unsigned long arg);
@@ -111,7 +111,7 @@ static struct amebasmart_gpt_lowerhalf_s g_gpt0_lowerhalf = {
 	.ops = &g_timer_ops,
 };
 
-static struct amebasmart_gpt_lowerhalf_s g_gpt1_lowerhalf = {
+struct amebasmart_gpt_lowerhalf_s g_gpt1_lowerhalf = {
 	.ops = &g_timer_ops,
 };
 
@@ -257,7 +257,7 @@ static int amebasmart_gpt_stop(struct timer_lowerhalf_s *lower)
  *   Zero on success; a negated errno value on failure.
  *
  ****************************************************************************/
-static int amebasmart_gpt_getstatus(struct timer_lowerhalf_s *lower, struct timer_status_s *status)
+int amebasmart_gpt_getstatus(struct timer_lowerhalf_s *lower, struct timer_status_s *status)
 {
 	struct amebasmart_gpt_lowerhalf_s *priv = (struct amebasmart_gpt_lowerhalf_s *)lower;
 	uint32_t ticks;

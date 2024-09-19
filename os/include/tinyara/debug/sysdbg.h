@@ -65,6 +65,8 @@ struct sched_history_s {
 	pid_t pid;
 	uint8_t sched_priority;
 	struct tcb_s *ptcb;
+	uint8_t tstate;				// blocked status of thread
+	clock_t etime;		// blocked time
 };
 
 typedef struct sched_history_s sched_history_t;

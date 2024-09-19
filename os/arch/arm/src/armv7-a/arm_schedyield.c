@@ -106,6 +106,9 @@ void up_schedyield(void)
 			sched_mergepending();
 		}
 
+#ifdef CONFIG_TASK_SCHED_HISTORY
+		save_task_blocking_status(rtcb);
+#endif
 		/* Get new head of the list */
 
 		ntcb = this_task();
@@ -139,11 +142,6 @@ void up_schedyield(void)
 		/* No, then we will need to perform the user context switch */
 
 		else {
-#ifdef CONFIG_TASK_SCHED_HISTORY
-			/* Save the task name which will be scheduled */
-
-			save_task_scheduling_status(ntcb);
-#endif
 			arm_switchcontext((uint32_t **) rtcb->xcp.regs, ntcb->xcp.regs);
 
 			/* up_switchcontext forces a context switch to the task at the

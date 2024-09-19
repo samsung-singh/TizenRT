@@ -115,7 +115,9 @@ void up_block_task(struct tcb_s *tcb, tstate_t task_state)
 
 	if (switch_needed) {
       /* Are we in an interrupt handler? */
-
+#ifdef CONFIG_TASK_SCHED_HISTORY
+  	  save_task_blocking_status(tcb);
+#endif
       if (CURRENT_REGS)
         {
           /* Yes, then we have to do things differently.
@@ -150,10 +152,6 @@ void up_block_task(struct tcb_s *tcb, tstate_t task_state)
       else
         {
           struct tcb_s *nexttcb = this_task();
-#ifdef CONFIG_TASK_SCHED_HISTORY
-			/* Save the task name which will be scheduled */
-			save_task_scheduling_status(nexttcb);
-#endif
 
           /* Reset scheduler parameters */
 

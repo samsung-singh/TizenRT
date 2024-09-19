@@ -96,7 +96,9 @@ sched_removeblocked(tcb);
       /* The currently active task has changed! We need to do
        * a context switch to the new task.
        */
-
+#ifdef CONFIG_TASK_SCHED_HISTORY
+      save_task_blocking_status(rtcb);
+#endif
       /* Update scheduler parameters */
 
       //sched_suspend_scheduler(rtcb);
@@ -137,10 +139,6 @@ sched_removeblocked(tcb);
       else
         {
           struct tcb_s *nexttcb = this_task();
-#ifdef CONFIG_TASK_SCHED_HISTORY
-			/* Save the task name which will be scheduled */
-			save_task_scheduling_status(nexttcb);
-#endif
 
           /* Update scheduler parameters */
 

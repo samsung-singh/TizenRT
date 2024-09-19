@@ -316,6 +316,11 @@ static inline void os_do_appstart(void)
 	prodconfig_register();
 #endif
 
+#if defined(CONFIG_DEBUG_SYSTEM)
+	extern void sysdbg_monitor_enable(void);
+	sysdbg_monitor_enable();
+#endif
+
 #ifdef CONFIG_LOG_DUMP
 	svdbg("Starting log_dump thread\n");
 

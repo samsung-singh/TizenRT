@@ -35,6 +35,8 @@
 #include <assert.h>
 #include <semaphore.h>
 #include "sched/sched.h"
+#include <fcntl.h>
+#include <tinyara/timer.h>
 
 /* Kindly update the debug_version as and when changes done in struct
  * sysdbg_struct as there will be dependency on T32 scripts and
@@ -52,22 +54,23 @@ volatile int g_debug_version = 1;
 static int sysdbg_open(FAR struct file *filep);
 static int sysdbg_close(FAR struct file *filep);
 static ssize_t sysdbg_write(FAR struct file *filep, FAR const char *buffer, size_t buflen);
-static void sysdbg_monitor_enable(void);
+void sysdbg_monitor_enable(void);
 static void sysdbg_monitor_disable(void);
 static void sysdbg_print(void);
 
 #ifdef CONFIG_TASK_SCHED_HISTORY
 static void update_maxtask_count(int count);
-static uint32_t max_task_count = CONFIG_DEBUG_TASK_MAX_COUNT;
+static uint32_t max_task_count = CONFIG_DEBUG_TASK_MAX_COUNT + CONFIG_DEBUG_TASK_MAX_COUNT;
 #endif
 #ifdef CONFIG_IRQ_SCHED_HISTORY
 static void update_maxirq_count(int count);
-static uint32_t max_irq_count = CONFIG_DEBUG_IRQ_MAX_COUNT;
+static uint32_t max_irq_count = CONFIG_DEBUG_IRQ_MAX_COUNT + CONFIG_DEBUG_IRQ_MAX_COUNT;
 #endif
 #ifdef CONFIG_SEMAPHORE_HISTORY
 static void update_maxsem_count(int count);
 static uint32_t max_sem_count = CONFIG_DEBUG_SEM_MAX_COUNT;
 #endif
+int fd = -1;
 
 /****************************************************************************
  * Private Types
@@ -297,9 +300,25 @@ static int sysdbg_close(FAR struct file *filep)
  *   None
  *
  ****************************************************************************/
-
 static void sysdbg_print(void)
 {
+	char *tstate[] = {"INVALID", "PENDING", "READYTORUN",
+#ifdef CONFIG_SMP
+		"ASSIGNED",
+#endif
+		"RUNNING", "INACTIVE", "WAIT_SEM", "WAIT_FIN",
+#ifndef CONFIG_DISABLE_SIGNALS
+		"WAIT_SIG",
+#endif
+#ifndef CONFIG_DISABLE_MQUEUE
+		"WAIT_MQNOTEMPTY",
+		"WAIT_MQNOTFULL",
+#endif
+#ifdef CONFIG_PAGING
+		"WAIT_PAGEFILL",
+#endif
+		"TASK_STATES"};
+
 #if defined(CONFIG_TASK_SCHED_HISTORY) || defined(CONFIG_IRQ_SCHED_HISTORY) || defined(CONFIG_SEMAPHORE_HISTORY)
 	uint32_t idx = 0;
 #endif
@@ -319,19 +338,23 @@ static void sysdbg_print(void)
 	lldbg("Displaying the TASK SCHEDULING HISTORY for %d count\n", max_task_count);
 	lldbg("*****************************************************************************\n");
 #if CONFIG_TASK_NAME_SIZE > 0
-	lldbg("* TASK_SCHEDTIME\t\tTASK_NAME\t PID\t PRIORITY\t TCB\n");
+	lldbg("* TASK_SCHEDTIME\t  TASK_RUNTIME(etime)\t\t\t TSTATE\t\t TASK_NAME\t PID\t PRIORITY\t TCB\n");
 #else
-	lldbg("* TASK_SCHEDTIME\t PID\t PRIORITY\t TCB\n");
+	lldbg("* TASK_SCHEDTIME\tTASK_RUNTIME\t PID\t PRIORITY\t TCB\n");
 #endif
 	lldbg("*****************************************************************************\n");
 	idx = sysdbg_struct->task_lastindex;
 	do {
 #if CONFIG_TASK_NAME_SIZE > 0
-		lldbg("%8lld%31s%10d%10d%16X\n",
+		lldbg("%12.6f ms %12.6f (%12.6f) ms %20s%17s%10d%10d%16X\n",
 #else
-		lldbg("%8lld%14d%10d%16X\n",
+		lldbg("%15d us %15d us %20s%10d%10d%16X\n",
 #endif
-			  (uint64_t)sysdbg_struct->sched[idx].time,
+			  	(float)sysdbg_struct->sched[idx].time/1000,
+				(sysdbg_struct->sched[idx].etime < sysdbg_struct->sched[idx].time? -1: (float)(sysdbg_struct->sched[idx].etime - sysdbg_struct->sched[idx].time)/1000),
+				(float)sysdbg_struct->sched[idx].etime/1000,
+			  	tstate[sysdbg_struct->sched[idx].tstate],
+
 #if CONFIG_TASK_NAME_SIZE > 0
 			  sysdbg_struct->sched[idx].task,
 #endif
@@ -603,6 +626,29 @@ static void update_maxsem_count(int count)
  *
  ****************************************************************************/
 
+extern int amebasmart_gpt_getstatus(struct timer_lowerhalf_s *lower, struct timer_status_s *status);
+extern struct amebasmart_gpt_lowerhalf_s g_gpt1_lowerhalf;
+
+void save_task_blocking_status(struct tcb_s *tcb) {
+	struct timer_status_s ttime;
+
+	irqstate_t saved_state = enter_critical_section();
+	
+	uint32_t idx = sysdbg_struct->task_lastindex;
+	if(sysdbg_struct->sched[idx].pid == tcb->pid) {
+		if (amebasmart_gpt_getstatus(&g_gpt1_lowerhalf, &ttime) < 0) {
+			lldbg("Err %d\n", errno);
+		} else if (ttime.timeleft > sysdbg_struct->sched[idx].time) {
+			sysdbg_struct->sched[idx].etime = ttime.timeleft;	//clock_systimer();
+			sysdbg_struct->task_lastindex++;
+		}
+		sysdbg_struct->sched[idx].tstate = tcb->task_state;
+	} else {
+		lldbg("%d != %d\n", sysdbg_struct->sched[idx].pid, tcb->pid);
+	}
+	leave_critical_section(saved_state);
+}
+
 void save_task_scheduling_status(struct tcb_s *tcb)
 {
 	irqstate_t saved_state;
@@ -617,23 +663,24 @@ void save_task_scheduling_status(struct tcb_s *tcb)
 		return;
 	}
 
+	struct timer_status_s ttime;
 	saved_state = enter_critical_section();
-	/* Keeping it circular buffer */
-	index = index & (max_task_count - 1);
-
-	sysdbg_struct->sched[index].time = clock_systimer();
+	
+	sysdbg_struct->task_lastindex = sysdbg_struct->task_lastindex & (max_task_count - 1);
+	if (amebasmart_gpt_getstatus(&g_gpt1_lowerhalf, &ttime) < 0) {
+		lldbg("Err %d\n", errno);
+	} else {
+		sysdbg_struct->sched[sysdbg_struct->task_lastindex].time = ttime.timeleft;       //clock_systimer();
+	}
 	if (tcb) {
 #if CONFIG_TASK_NAME_SIZE > 0
-		strncpy(sysdbg_struct->sched[index].task, tcb->name, TASK_NAME_SIZE);
+		strncpy(sysdbg_struct->sched[sysdbg_struct->task_lastindex].task, tcb->name, TASK_NAME_SIZE);
 #endif
-		sysdbg_struct->sched[index].pid = tcb->pid;
-		sysdbg_struct->sched[index].sched_priority = tcb->sched_priority;
-		sysdbg_struct->sched[index].ptcb = tcb;
+		sysdbg_struct->sched[sysdbg_struct->task_lastindex].pid = tcb->pid;
+		sysdbg_struct->sched[sysdbg_struct->task_lastindex].sched_priority = tcb->sched_priority;
+		sysdbg_struct->sched[sysdbg_struct->task_lastindex].ptcb = tcb;
 	}
-	sysdbg_struct->task_lastindex = index;
-	index++;
 	leave_critical_section(saved_state);
-
 }
 
 /****************************************************************************
@@ -707,8 +754,15 @@ void save_irq_scheduling_status(uint32_t irq, void *fn)
 
 	/* Keeping it circular buffer */
 	index = index & (max_irq_count - 1);
+	
+	struct timer_status_s ttime;
+	if (amebasmart_gpt_getstatus(&g_gpt1_lowerhalf, &ttime) < 0) {
+		lldbg("Err %d\n", errno);
+	} else {
+		sysdbg_struct->sched[sysdbg_struct->task_lastindex].time = ttime.timeleft;
+	}
 
-	sysdbg_struct->irq[index].time = clock_systimer();
+	sysdbg_struct->irq[index].time = ttime.timeleft; //clock_systimer();
 	sysdbg_struct->irq[index].irq = irq;
 	sysdbg_struct->irq[index].fn = (void *)fn;
 	sysdbg_struct->irq_lastindex = index;
@@ -838,8 +892,18 @@ static void sysdbg_monitor_disable(void)
  *
  ****************************************************************************/
 
-static void sysdbg_monitor_enable(void)
+void sysdbg_monitor_enable(void)
 {
+	if (fd < 0) {
+		fd = open("/dev/timer1", O_RDONLY);
+		if (fd < 0) {
+			lldbg("Unable to open timer1\n");
+		}
+
+		ioctl(fd, TCIOC_SETMODE, MODE_FREERUN);
+//		ioctl(fd, TCIOC_SETRESOLUTION, TIME_RESOLUTION_US);
+		ioctl(fd, TCIOC_START, 0);
+	}
 	if (sysdbg_monitor) {
 		lldbg("sysdbg monitoring is alredy enabled\n");
 		return;

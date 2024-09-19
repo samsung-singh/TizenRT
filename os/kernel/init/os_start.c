@@ -766,10 +766,6 @@ void os_start(void)
 	os_api_test_drv_register();
 #endif
 
-#if defined(CONFIG_DEBUG_SYSTEM)
-	sysdbg_init();
-#endif
-
 #if defined(CONFIG_TTRACE)
 	ttrace_init();
 #endif
@@ -848,6 +844,10 @@ void os_start(void)
 	display_memory_information();
 #endif
 
+#if defined(CONFIG_DEBUG_SYSTEM)
+	sysdbg_init();
+#endif
+	
 	g_os_initstate = OSINIT_OSREADY;
 	DEBUGVERIFY(os_bringup());
 	g_os_initstate = OSINIT_IDLELOOP;
