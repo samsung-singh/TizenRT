@@ -565,4 +565,23 @@ int timer_setcallback(FAR void *handle, tccb_t callback, FAR void *arg)
 
 	return -ENOSYS;
 }
+
+/****************************************************************************
+ * Name: timer_getstatus_lowlevel
+ *
+ * Description:
+ *   This is a wrapper function for amebasmart_gpt_getstatus api.
+ *
+ * Input parameters:
+ *
+ ****************************************************************************/
+int timer_getstatus_lowlevel(struct timer_status_s *status)
+{
+
+#if CONFIG_ARCH_CHIP_AMEBASMART
+	return amebasmart_gpt_getstatus(&g_gpt1_lowerhalf, status);
+#endif
+
+	return -1;
+}
 #endif /* CONFIG_TIMER */

@@ -241,6 +241,9 @@ struct timer_lowerhalf_s {
 /****************************************************************************
  * Public Data
  ****************************************************************************/
+#if CONFIG_ARCH_CHIP_AMEBASMART
+extern struct amebasmart_gpt_lowerhalf_s g_gpt1_lowerhalf;
+#endif
 
 /****************************************************************************
  * Public Function Prototypes
@@ -306,6 +309,19 @@ FAR void *timer_register(FAR const char *path,
  ****************************************************************************/
 
 void timer_unregister(FAR void *handle);
+
+/****************************************************************************
+ * Name: timer_getstatus_lowlevel
+ *
+ * Description:
+ *
+ * Input parameters:
+ *
+ * Returned Value:
+ *
+ ****************************************************************************/
+
+int timer_getstatus_lowlevel(struct timer_status_s *status);
 
 /****************************************************************************
  * Kernel internal interfaces. These may not be used by application logic.

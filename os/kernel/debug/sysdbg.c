@@ -56,7 +56,7 @@ static int sysdbg_close(FAR struct file *filep);
 static ssize_t sysdbg_write(FAR struct file *filep, FAR const char *buffer, size_t buflen);
 void sysdbg_monitor_enable(void);
 static void sysdbg_monitor_disable(void);
-static void sysdbg_print(void);
+void sysdbg_print(void);
 
 #ifdef CONFIG_TASK_SCHED_HISTORY
 static void update_maxtask_count(int count);
@@ -300,7 +300,7 @@ static int sysdbg_close(FAR struct file *filep)
  *   None
  *
  ****************************************************************************/
-static void sysdbg_print(void)
+void sysdbg_print(void)
 {
 	char *tstate[] = {"INVALID", "PENDING", "READYTORUN",
 #ifdef CONFIG_SMP
@@ -336,28 +336,27 @@ static void sysdbg_print(void)
 	saved_state = enter_critical_section();
 #ifdef CONFIG_TASK_SCHED_HISTORY
 	lldbg("Displaying the TASK SCHEDULING HISTORY for %d count\n", max_task_count);
-	lldbg("*****************************************************************************\n");
+	lldbg("***********************************************************************************************************\n");
 #if CONFIG_TASK_NAME_SIZE > 0
-	lldbg("* TASK_SCHEDTIME\t  TASK_RUNTIME(etime)\t\t\t TSTATE\t\t TASK_NAME\t PID\t PRIORITY\t TCB\n");
+	lldbg("*    TASK_NAME\t TASK_SCHEDTIME\t  TASK_RUNTIME\t\t TSTATE\t\t PID\t PRIORITY\t TCB\n");
 #else
 	lldbg("* TASK_SCHEDTIME\tTASK_RUNTIME\t PID\t PRIORITY\t TCB\n");
 #endif
-	lldbg("*****************************************************************************\n");
+	lldbg("***********************************************************************************************************\n");
 	idx = sysdbg_struct->task_lastindex;
 	do {
 #if CONFIG_TASK_NAME_SIZE > 0
-		lldbg("%12.6f ms %12.6f (%12.6f) ms %20s%17s%10d%10d%16X\n",
+		lldbg("%17s%12.2f ms %12.2f us %18s%10d%10d%16X\n",
 #else
 		lldbg("%15d us %15d us %20s%10d%10d%16X\n",
 #endif
-			  	(float)sysdbg_struct->sched[idx].time/1000,
-				(sysdbg_struct->sched[idx].etime < sysdbg_struct->sched[idx].time? -1: (float)(sysdbg_struct->sched[idx].etime - sysdbg_struct->sched[idx].time)/1000),
-				(float)sysdbg_struct->sched[idx].etime/1000,
-			  	tstate[sysdbg_struct->sched[idx].tstate],
-
 #if CONFIG_TASK_NAME_SIZE > 0
 			  sysdbg_struct->sched[idx].task,
 #endif
+			  	(float)sysdbg_struct->sched[idx].time/1000,
+				(sysdbg_struct->sched[idx].etime < sysdbg_struct->sched[idx].time? -1: (float)(sysdbg_struct->sched[idx].etime - sysdbg_struct->sched[idx].time)),
+			  	tstate[sysdbg_struct->sched[idx].tstate],
+
 			  sysdbg_struct->sched[idx].pid, sysdbg_struct->sched[idx].sched_priority, sysdbg_struct->sched[idx].ptcb);
 		idx--;
 		/* Keeping it circular buffer */
@@ -626,8 +625,6 @@ static void update_maxsem_count(int count)
  *
  ****************************************************************************/
 
-extern int amebasmart_gpt_getstatus(struct timer_lowerhalf_s *lower, struct timer_status_s *status);
-extern struct amebasmart_gpt_lowerhalf_s g_gpt1_lowerhalf;
 
 void save_task_blocking_status(struct tcb_s *tcb) {
 	struct timer_status_s ttime;
@@ -636,7 +633,7 @@ void save_task_blocking_status(struct tcb_s *tcb) {
 	
 	uint32_t idx = sysdbg_struct->task_lastindex;
 	if(sysdbg_struct->sched[idx].pid == tcb->pid) {
-		if (amebasmart_gpt_getstatus(&g_gpt1_lowerhalf, &ttime) < 0) {
+		if (timer_getstatus_lowlevel(&ttime) < 0) {
 			lldbg("Err %d\n", errno);
 		} else if (ttime.timeleft > sysdbg_struct->sched[idx].time) {
 			sysdbg_struct->sched[idx].etime = ttime.timeleft;	//clock_systimer();
@@ -667,7 +664,7 @@ void save_task_scheduling_status(struct tcb_s *tcb)
 	saved_state = enter_critical_section();
 	
 	sysdbg_struct->task_lastindex = sysdbg_struct->task_lastindex & (max_task_count - 1);
-	if (amebasmart_gpt_getstatus(&g_gpt1_lowerhalf, &ttime) < 0) {
+	if (timer_getstatus_lowlevel(&ttime) < 0) {
 		lldbg("Err %d\n", errno);
 	} else {
 		sysdbg_struct->sched[sysdbg_struct->task_lastindex].time = ttime.timeleft;       //clock_systimer();
