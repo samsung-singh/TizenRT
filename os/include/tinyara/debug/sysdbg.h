@@ -67,7 +67,6 @@ struct sched_history_s {
 	struct tcb_s *ptcb;
 	uint8_t tstate;				// blocked status of thread
 	clock_t etime;		// blocked time
-	uint8_t cpu;
 };
 
 typedef struct sched_history_s sched_history_t;
@@ -105,8 +104,8 @@ typedef enum sem_status_s sem_status_t;
 
 struct sysdbg_s {
 #ifdef CONFIG_TASK_SCHED_HISTORY
-	sched_history_t *sched;
-	int task_lastindex;
+	sched_history_t *sched[CONFIG_SMP_NCPUS];
+	int task_lastindex[CONFIG_SMP_NCPUS];
 #endif
 #ifdef CONFIG_IRQ_SCHED_HISTORY
 	irq_history_t *irq;

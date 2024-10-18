@@ -140,5 +140,5 @@ int set_security_level(void)
  ****************************************************************************/
 int get_security_level(void)
 {
-	return LOW_SECURITY_LEVEL;
+	return security_level;
 }

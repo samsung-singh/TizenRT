@@ -56,15 +56,15 @@ static int sysdbg_close(FAR struct file *filep);
 static ssize_t sysdbg_write(FAR struct file *filep, FAR const char *buffer, size_t buflen);
 void sysdbg_monitor_enable(void);
 static void sysdbg_monitor_disable(void);
-void sysdbg_print(void);
+static void sysdbg_print(void);
 
 #ifdef CONFIG_TASK_SCHED_HISTORY
 static void update_maxtask_count(int count);
-static uint32_t max_task_count = CONFIG_DEBUG_TASK_MAX_COUNT + CONFIG_DEBUG_TASK_MAX_COUNT;
+static uint32_t max_task_count = CONFIG_DEBUG_TASK_MAX_COUNT;
 #endif
 #ifdef CONFIG_IRQ_SCHED_HISTORY
 static void update_maxirq_count(int count);
-static uint32_t max_irq_count = CONFIG_DEBUG_IRQ_MAX_COUNT + CONFIG_DEBUG_IRQ_MAX_COUNT;
+static uint32_t max_irq_count = CONFIG_DEBUG_IRQ_MAX_COUNT;
 #endif
 #ifdef CONFIG_SEMAPHORE_HISTORY
 static void update_maxsem_count(int count);
@@ -300,7 +300,7 @@ static int sysdbg_close(FAR struct file *filep)
  *   None
  *
  ****************************************************************************/
-void sysdbg_print(void)
+static void sysdbg_print(void)
 {
 	char *tstate[] = {"INVALID", "PENDING", "READYTORUN",
 #ifdef CONFIG_SMP
@@ -334,38 +334,39 @@ void sysdbg_print(void)
 	}
 
 	saved_state = enter_critical_section();
+
+	for(int cpu = 0; cpu < CONFIG_SMP_NCPUS; cpu++) {
 #ifdef CONFIG_TASK_SCHED_HISTORY
-	lldbg("Displaying the TASK SCHEDULING HISTORY for %d count\n", max_task_count);
-	lldbg("***********************************************************************************************************\n");
+		lldbg("Displaying the TASK SCHEDULING HISTORY for %d count on CPU %d\n", max_task_count, cpu);
+		lldbg("***********************************************************************************************************\n");
 #if CONFIG_TASK_NAME_SIZE > 0
-	lldbg("*    TASK_NAME\t TASK_SCHEDTIME\t  TASK_RUNTIME\t\t TSTATE\t\t PID\t PRIORITY\t TCB\n");
+		lldbg("*    TASK_NAME\t TASK_SCHEDTIME\t  TASK_RUNTIME\t\t TSTATE\t\t PID\t PRIORITY\t TCB\n");
 #else
-	lldbg("* TASK_SCHEDTIME\tTASK_RUNTIME\t PID\t PRIORITY\t TCB\n");
+		lldbg("* TASK_SCHEDTIME\tTASK_RUNTIME\t PID\t PRIORITY\t TCB\n");
 #endif
-	lldbg("***********************************************************************************************************\n");
-	idx = sysdbg_struct->task_lastindex;
-	do {
+		lldbg("***********************************************************************************************************\n");
+		idx = sysdbg_struct->task_lastindex[cpu];
+		do {
 #if CONFIG_TASK_NAME_SIZE > 0
-		lldbg("%17s%12.2f ms %12.2f us %18s%10d%10d%16X\n",
+			lldbg("%17s%12.2f ms %12.2f us %18s%10d%10d%16X\n",
 #else
-		lldbg("%15d us %15d us %20s%10d%10d%16X\n",
+			lldbg("%15d us %15d us %20s%10d%10d%16X\n",
 #endif
 #if CONFIG_TASK_NAME_SIZE > 0
-			  sysdbg_struct->sched[idx].task,
+				sysdbg_struct->sched[cpu][idx].task,
 #endif
-			  	(float)sysdbg_struct->sched[idx].time/1000,
-				(sysdbg_struct->sched[idx].etime < sysdbg_struct->sched[idx].time? -1: (float)(sysdbg_struct->sched[idx].etime - sysdbg_struct->sched[idx].time)),
-			  	tstate[sysdbg_struct->sched[idx].tstate],
-
-			  sysdbg_struct->sched[idx].pid, sysdbg_struct->sched[idx].sched_priority, sysdbg_struct->sched[idx].ptcb);
-		idx--;
-		/* Keeping it circular buffer */
-		idx = idx & (max_task_count - 1);
-	} while (idx != sysdbg_struct->task_lastindex);
+				(float)sysdbg_struct->sched[cpu][idx].time/1000,
+				(sysdbg_struct->sched[cpu][idx].etime < sysdbg_struct->sched[cpu][idx].time? -1: (float)(sysdbg_struct->sched[cpu][idx].etime - sysdbg_struct->sched[cpu][idx].time)),
+				tstate[sysdbg_struct->sched[cpu][idx].tstate],
+				sysdbg_struct->sched[cpu][idx].pid, sysdbg_struct->sched[cpu][idx].sched_priority, sysdbg_struct->sched[cpu][idx].ptcb);
+			idx--;
+			/* Keeping it circular buffer */
+			idx = idx & (max_task_count - 1);
+		} while (idx != sysdbg_struct->task_lastindex[cpu]);
 #else
-	lldbg("CONFIG_TASK_SCHED_HISTORY is not enabled to view task history");
+		lldbg("CONFIG_TASK_SCHED_HISTORY is not enabled to view task history");
 #endif							/* End of CONFIG_TASK_SCHED_HISTORY */
-
+	}
 #ifdef CONFIG_IRQ_SCHED_HISTORY
 	lldbg("Displaying the IRQ SCHEDULING HISTORY for %d count\n", max_irq_count);
 	lldbg("*****************************************************************************\n");
@@ -628,28 +629,29 @@ static void update_maxsem_count(int count)
 
 void save_task_blocking_status(struct tcb_s *tcb) {
 	struct timer_status_s ttime;
-
-	irqstate_t saved_state = enter_critical_section();
 	
-	uint32_t idx = sysdbg_struct->task_lastindex;
-	if(sysdbg_struct->sched[idx].pid == tcb->pid) {
+#ifdef CONFIG_SMP
+	uint8_t cpu = tcb->cpu;
+#else
+	uint8_t cpu = 0;
+#endif
+
+	uint32_t idx = sysdbg_struct->task_lastindex[cpu];
+	if(sysdbg_struct->sched[cpu][idx].pid == tcb->pid) {
 		if (timer_getstatus_lowlevel(&ttime) < 0) {
 			lldbg("Err %d\n", errno);
-		} else if (ttime.timeleft > sysdbg_struct->sched[idx].time) {
-			sysdbg_struct->sched[idx].etime = ttime.timeleft;	//clock_systimer();
-			sysdbg_struct->task_lastindex++;
+		} else if (ttime.timeleft > sysdbg_struct->sched[cpu][idx].time) {
+			sysdbg_struct->sched[cpu][idx].etime = ttime.timeleft;
+			sysdbg_struct->task_lastindex[cpu]++;
 		}
-		sysdbg_struct->sched[idx].tstate = tcb->task_state;
+		sysdbg_struct->sched[cpu][idx].tstate = tcb->task_state;
 	} else {
-		lldbg("%d != %d\n", sysdbg_struct->sched[idx].pid, tcb->pid);
+		lldbg("%d != %d\n", sysdbg_struct->sched[cpu][idx].pid, tcb->pid);
 	}
-	leave_critical_section(saved_state);
 }
 
 void save_task_scheduling_status(struct tcb_s *tcb)
 {
-	irqstate_t saved_state;
-	static uint32_t index = 0;
 
 	if (!sysdbg_monitor) {
 		/* Monitoring is still not enabled */
@@ -661,23 +663,27 @@ void save_task_scheduling_status(struct tcb_s *tcb)
 	}
 
 	struct timer_status_s ttime;
-	saved_state = enter_critical_section();
 	
-	sysdbg_struct->task_lastindex = sysdbg_struct->task_lastindex & (max_task_count - 1);
+#ifdef CONFIG_SMP
+	uint8_t cpu = tcb->cpu;
+#else
+	uint8_t cpu = 0;
+#endif
+
+	uint32_t idx = sysdbg_struct->task_lastindex[cpu] = sysdbg_struct->task_lastindex[cpu] & (max_task_count - 1);
 	if (timer_getstatus_lowlevel(&ttime) < 0) {
 		lldbg("Err %d\n", errno);
 	} else {
-		sysdbg_struct->sched[sysdbg_struct->task_lastindex].time = ttime.timeleft;       //clock_systimer();
+		sysdbg_struct->sched[cpu][idx].time = ttime.timeleft;
 	}
 	if (tcb) {
 #if CONFIG_TASK_NAME_SIZE > 0
-		strncpy(sysdbg_struct->sched[sysdbg_struct->task_lastindex].task, tcb->name, TASK_NAME_SIZE);
+		strncpy(sysdbg_struct->sched[cpu][idx].task, tcb->name, TASK_NAME_SIZE);
 #endif
-		sysdbg_struct->sched[sysdbg_struct->task_lastindex].pid = tcb->pid;
-		sysdbg_struct->sched[sysdbg_struct->task_lastindex].sched_priority = tcb->sched_priority;
-		sysdbg_struct->sched[sysdbg_struct->task_lastindex].ptcb = tcb;
+		sysdbg_struct->sched[cpu][idx].pid = tcb->pid;
+		sysdbg_struct->sched[cpu][idx].sched_priority = tcb->sched_priority;
+		sysdbg_struct->sched[cpu][idx].ptcb = tcb;
 	}
-	leave_critical_section(saved_state);
 }
 
 /****************************************************************************
@@ -753,10 +759,10 @@ void save_irq_scheduling_status(uint32_t irq, void *fn)
 	index = index & (max_irq_count - 1);
 	
 	struct timer_status_s ttime;
-	if (amebasmart_gpt_getstatus(&g_gpt1_lowerhalf, &ttime) < 0) {
+	if (timer_getstatus_lowlevel(&ttime) < 0) {
 		lldbg("Err %d\n", errno);
 	} else {
-		sysdbg_struct->sched[sysdbg_struct->task_lastindex].time = ttime.timeleft;
+		sysdbg_struct->sched[0][sysdbg_struct->task_lastindex[0]].time = ttime.timeleft;
 	}
 
 	sysdbg_struct->irq[index].time = ttime.timeleft; //clock_systimer();
@@ -835,11 +841,13 @@ static void sysdbg_monitor_disable(void)
 		sysdbg_monitor = false;
 #ifdef CONFIG_TASK_SCHED_HISTORY
 		/* Free the memory allocated for sched struct */
-		if (sysdbg_struct->sched) {
-			kmm_free(sysdbg_struct->sched);
-			sysdbg_struct->sched = NULL;
+		for(int cpu = 0; cpu < CONFIG_SMP_NCPUS; cpu++) {
+			if (sysdbg_struct->sched[cpu]) {
+				kmm_free(sysdbg_struct->sched[cpu]);
+				sysdbg_struct->sched[cpu] = NULL;
+			}
+			sysdbg_struct->task_lastindex[cpu] = 0;
 		}
-		sysdbg_struct->task_lastindex = 0;
 #endif
 #ifdef CONFIG_IRQ_SCHED_HISTORY
 		/* Free the memory allocated for irq struct */
@@ -920,10 +928,12 @@ void sysdbg_monitor_enable(void)
 		}
 #ifdef CONFIG_TASK_SCHED_HISTORY
 		size = sizeof(sched_history_t) * max_task_count;
-		sysdbg_struct->sched = (FAR sched_history_t *)kmm_zalloc(size);
-		if (sysdbg_struct->sched == NULL) {
-			lldbg("Failed to allocate memory(%d) (max_task_count * sizeof(sched_history_t)\n", size);
-			goto fail1;
+		for(int cpu = 0; cpu < CONFIG_SMP_NCPUS; cpu++) {
+			sysdbg_struct->sched[cpu] = (FAR sched_history_t *)kmm_zalloc(size);
+			if (sysdbg_struct->sched[cpu] == NULL) {
+				lldbg("Failed to allocate memory(%d) (max_task_count * sizeof(sched_history_t)\n", size);
+				goto fail1;
+			}
 		}
 #endif
 #ifdef CONFIG_IRQ_SCHED_HISTORY
@@ -961,8 +971,10 @@ fail3:
 fail2:
 #endif
 #ifdef CONFIG_TASK_SCHED_HISTORY
-	kmm_free(sysdbg_struct->sched);
-	sysdbg_struct->sched = NULL;
+	for(int cpu = 0; cpu < CONFIG_SMP_NCPUS; cpu++) {
+		kmm_free(sysdbg_struct->sched[cpu]);
+		sysdbg_struct->sched[cpu] = NULL;
+	}
 #endif
 
 #ifdef CONFIG_TASK_SCHED_HISTORY
