@@ -334,23 +334,22 @@ static void sysdbg_print(void)
 	}
 
 	saved_state = enter_critical_section();
-
 	for(int cpu = 0; cpu < CONFIG_SMP_NCPUS; cpu++) {
 #ifdef CONFIG_TASK_SCHED_HISTORY
 		lldbg("Displaying the TASK SCHEDULING HISTORY for %d count on CPU %d\n", max_task_count, cpu);
-		lldbg("***********************************************************************************************************\n");
+		lldbg("**********************************************************************************************************************\n");
 #if CONFIG_TASK_NAME_SIZE > 0
-		lldbg("*    TASK_NAME\t TASK_SCHEDTIME\t  TASK_RUNTIME\t\t TSTATE\t\t PID\t PRIORITY\t TCB\n");
+		lldbg("*    TASK_NAME\t TASK_SCHEDTIME\t  TASK_RUNTIME\t\t TSTATE\t\t PID\t PRIORITY\t TCB\t\tREGS\n");
 #else
-		lldbg("* TASK_SCHEDTIME\tTASK_RUNTIME\t PID\t PRIORITY\t TCB\n");
+		lldbg("* TASK_SCHEDTIME\tTASK_RUNTIME\t PID\t PRIORITY\t TCB\t REGS\n");
 #endif
-		lldbg("***********************************************************************************************************\n");
+		lldbg("**********************************************************************************************************************\n");
 		idx = sysdbg_struct->task_lastindex[cpu];
 		do {
 #if CONFIG_TASK_NAME_SIZE > 0
-			lldbg("%17s%12.2f ms %12.2f us %18s%10d%10d%16X\n",
+			lldbg("%17s%12.2f ms %12.2f us %18s%10d%10d%16X%15d\n",
 #else
-			lldbg("%15d us %15d us %20s%10d%10d%16X\n",
+			lldbg("%15d us %15d us %20s%10d%10d%16X%15d\n",
 #endif
 #if CONFIG_TASK_NAME_SIZE > 0
 				sysdbg_struct->sched[cpu][idx].task,
@@ -358,7 +357,8 @@ static void sysdbg_print(void)
 				(float)sysdbg_struct->sched[cpu][idx].time/1000,
 				(sysdbg_struct->sched[cpu][idx].etime < sysdbg_struct->sched[cpu][idx].time? -1: (float)(sysdbg_struct->sched[cpu][idx].etime - sysdbg_struct->sched[cpu][idx].time)),
 				tstate[sysdbg_struct->sched[cpu][idx].tstate],
-				sysdbg_struct->sched[cpu][idx].pid, sysdbg_struct->sched[cpu][idx].sched_priority, sysdbg_struct->sched[cpu][idx].ptcb);
+				sysdbg_struct->sched[cpu][idx].pid, sysdbg_struct->sched[cpu][idx].sched_priority, sysdbg_struct->sched[cpu][idx].ptcb,
+				(!strcmp(sysdbg_struct->sched[cpu][idx].task, "appmain")||!strcmp(sysdbg_struct->sched[cpu][idx].task, "")? 0: sysdbg_struct->sched[cpu][idx].ptcb->xcp.regs[REG_PC]));
 			idx--;
 			/* Keeping it circular buffer */
 			idx = idx & (max_task_count - 1);
