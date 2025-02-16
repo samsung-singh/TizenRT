@@ -58,6 +58,10 @@ SE_BIN	= libse$(LIBEXT)
 all: $(SE_BIN)
 .PHONY: depend clean distclean
 
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(SE_OBJS)
+	$(Q) touch $@
+
 $(SE_LIB_OUT):
 	$(call ARCHIVE, $(patsubst %$(LIBEXT), %_$(CONFIG_ARCH)$(LIBEXT), $@), $(SE_LIB_OBJS))
 	$(Q) $(CROSSDEV)strip -d $(patsubst %$(LIBEXT), %_$(CONFIG_ARCH)$(LIBEXT), $@)
@@ -72,7 +76,7 @@ endif
 $(SE_OBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-$(SE_BIN): $(SE_LIB) $(SE_OBJS) $(SE_LIB_OUT)
+$(SE_BIN): .parallel $(SE_LIB) $(SE_OBJS) $(SE_LIB_OUT)
 	$(call ARCHIVE, $@, $(SE_OBJS))
 
 .depend: Makefile $(SE_SRCS)
@@ -83,6 +87,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, $(SE_BIN))
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 	$(Q) find . -name "*.o" -exec rm -rf {} \;
 

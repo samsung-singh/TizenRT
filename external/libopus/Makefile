@@ -116,6 +116,10 @@ endif
 all: .built
 .PHONY: .depend depend clean distclean
 
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
@@ -123,7 +127,7 @@ $(AOBJS): %$(OBJEXT): %.S
 $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILEXX, $<, $@)
 
-.built: $(OBJS)
+.built: .parallel $(OBJS)
 	$(call ARCHIVE, $(BIN), $(OBJS))
 	$(Q) touch .built
 
@@ -135,6 +139,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, .built)
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 
 distclean: clean

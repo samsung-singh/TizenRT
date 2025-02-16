@@ -81,13 +81,17 @@ VPATH		=
 all: .built
 .PHONY: depend clean distclean
 
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-.built: $(OBJS)
+.built: .parallel $(OBJS)
 	$(eval CMSIS_OBJS = $(wildcard *.o))
 	$(call ARCHIVE, $(BIN), $(OBJS))
 	$(Q) $(CROSSDEV)ar -rcs $(BIN) $(CMSIS_OBJS)
@@ -103,6 +107,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, .built)
+	$(call DELFILE, .parallel)
 
 distclean: clean
 	$(call DELFILE, Make.dep)

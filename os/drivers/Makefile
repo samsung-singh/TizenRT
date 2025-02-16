@@ -159,13 +159,17 @@ BIN = libdrivers$(LIBEXT)
 all: $(BIN)
 .PHONY: depend clean distclean
 
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-$(BIN): $(OBJS)
+$(BIN): .parallel $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 
 .depend: Makefile $(SRCS)
@@ -188,6 +192,7 @@ endif
 
 clean:
 	$(call DELFILE, $(BIN))
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 
 distclean: clean

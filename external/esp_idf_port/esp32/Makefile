@@ -47,14 +47,20 @@ ESP32_COBJS = $(ESP32_CSRCS:.c=$(OBJEXT))
 BIN = libesp32$(LIBEXT)
 
 all: $(BIN)
+
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+
 $(ESP32_COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-$(BIN): $(ESP32_COBJS)
+$(BIN): .parallel $(ESP32_COBJS)
 	$(call ARCHIVE, $@, $(ESP32_COBJS))
 
 clean:
 	$(call DELFILE, $(BIN))
+	$(call DELFILE, .parallel)
 	$(call DELFILE, $(ESP32_COBJS))
 	$(call CLEAN)
 

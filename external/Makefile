@@ -128,6 +128,7 @@ depend: .depend
 
 clean: $(foreach SDIR, $(BUILDIRS), $(SDIR)_clean)
 	$(call DELFILE, $(BIN))
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 
 distclean: $(foreach SDIR, $(BUILDIRS), $(SDIR)_distclean)

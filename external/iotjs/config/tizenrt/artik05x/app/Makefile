@@ -170,6 +170,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, .built)
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 
 distclean: clean

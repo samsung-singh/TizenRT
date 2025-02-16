@@ -50,6 +50,10 @@ BIN		= libframework$(LIBEXT)
 
 all:	$(BIN)
 
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
@@ -62,7 +66,7 @@ $(CPPOBJS): %$(OBJEXT): %.cpp
 $(CXXOBJS): %$(OBJEXT): %.cxx
 	$(call COMPILEXX, $<, $@)
 
-$(BIN): $(OBJS)
+$(BIN): .parallel $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 
 .depend: Makefile $(SRCS)
@@ -75,6 +79,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, $(BIN))
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 
 distclean: clean

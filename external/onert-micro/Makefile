@@ -162,6 +162,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, .built)
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 	$(foreach FILE, $(CXXOBJS), $(call DELFILE, $(FILE)))
 

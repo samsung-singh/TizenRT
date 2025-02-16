@@ -109,13 +109,17 @@ VPATH = $(MQTT_LIB_DIR)
 all: .built
 .PHONY: context depend clean distclean
 
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-.built: $(OBJS)
+.built: .parallel $(OBJS)
 	$(call ARCHIVE, $(BIN), $(OBJS))
 	$(Q) touch .built
 

@@ -168,6 +168,7 @@ clean:
 	$(eval OBJS += $(shell find . -name "*.obj"))
 	$(call DELFILE, $(OBJS))
 	$(call DELFILE, .built)
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 
 distclean: clean

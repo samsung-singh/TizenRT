@@ -144,6 +144,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, libboard$(LIBEXT))
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 
 distclean: clean

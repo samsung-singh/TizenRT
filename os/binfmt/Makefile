@@ -99,13 +99,16 @@ BIN = libbinfmt$(LIBEXT)
 all: $(BIN)
 .PHONY: depend clean distclean
 
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(BINFMT_OBJS)
+	$(Q) touch $@
 $(BINFMT_AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(BINFMT_COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-$(BIN): $(BINFMT_OBJS)
+$(BIN): .parallel $(BINFMT_OBJS)
 	$(call ARCHIVE, $@, $(BINFMT_OBJS))
 
 .depend: Makefile $(BINFMT_SRCS)
@@ -116,6 +119,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, $(BIN))
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 
 distclean: clean

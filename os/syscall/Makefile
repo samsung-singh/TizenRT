@@ -93,16 +93,24 @@ BIN2 = libstubs$(LIBEXT)
 all: $(BIN1) $(BIN2)
 .PHONY: context depend clean distclean
 
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(PROXY_OBJS)
+	$(Q) touch $@
+
+.parallel2:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(STUB_OBJS)
+	$(Q) touch $@
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-$(BIN1): $(PROXY_OBJS)
+$(BIN1): .parallel $(PROXY_OBJS)
 	$(call ARCHIVE, $@, $(PROXY_OBJS))
 
-$(BIN2): $(STUB_OBJS)
+$(BIN2): .parallel2 $(STUB_OBJS)
 	$(call ARCHIVE, $@, $(STUB_OBJS))
 
 .depend: Makefile $(SRCS)
@@ -129,6 +137,8 @@ ifneq ($(OBJEXT),)
 	$(call DELFILE, proxies$(DELIM)*$(OBJEXT))
 	$(call DELFILE, stubs$(DELIM)*$(OBJEXT))
 endif
+	$(call DELFILE, .parallel)
+	$(call DELFILE, .parallel2)
 	$(call CLEAN)
 
 distclean: clean

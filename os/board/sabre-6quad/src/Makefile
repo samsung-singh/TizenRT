@@ -93,6 +93,7 @@ clean::
 	$(call DELFILE, libboard$(LIBEXT))
 	$(call DELFILE, $(ETCSRC))
 	$(call DELDIR, $(ETCDIR))
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 
 distclean:: clean

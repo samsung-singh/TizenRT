@@ -102,6 +102,10 @@ BIN ?= libwque$(LIBEXT)
 all: $(BIN)
 .PHONY: context depend clean distclean
 
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+
 $(AOBJS): $(BINDIR)$(DELIM)%$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 	$(call MOVEOBJ,$(patsubst $(BINDIR)$(DELIM)%$(OBJEXT),%,$@),$(BINDIR))
@@ -112,7 +116,7 @@ $(COBJS): $(BINDIR)$(DELIM)%$(OBJEXT): %.c
 
 # Workqueue for the flat build
 
-$(BIN):	$(OBJS)
+$(BIN): .parallel $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 
 # Workqueue for the user phase of the two-pass kernel build
@@ -153,6 +157,7 @@ clean:
 	$(call DELFILE, $(UBIN))
 	$(call DELFILE, $(KBIN))
 
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 
 # Deep clean -- removes all traces of the configuration

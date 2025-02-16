@@ -84,6 +84,10 @@ VPATH		=
 all: .built
 .PHONY: depend clean distclean chkcxx
 
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+
 chkcxx:
 ifneq ($(CONFIG_HAVE_CXX),y)
 	@echo ""
@@ -105,7 +109,7 @@ $(COBJS): %$(OBJEXT): %.c
 $(CXXOBJS) $(MAINOBJ): %$(OBJEXT): %.cc
 	$(call COMPILEXX, $<, $@)
 
-.built: chkcxx $(OBJS)
+.built: .parallel chkcxx $(OBJS)
 	$(call ARCHIVE, $(BIN), $(OBJS))
 	$(Q) touch .built
 
@@ -117,6 +121,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, .built)
+	$(call DELFILE, .parallel)
 	$(call CLEAN)
 	$(Q) find . -name "*.o" -exec rm -rf {} \; # Tobe fixed
 
