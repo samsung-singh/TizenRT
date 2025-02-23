@@ -44,13 +44,22 @@ BIN = liblogm$(LIBEXT)
 all: $(BIN)
 .PHONY: depend clean distclean
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $(notdir $@))
 
 $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $(notdir $@))
 
-$(BIN):	$(OBJS)
+$(BIN): $(PARALLELISM) $(OBJS)
 	$(call ARCHIVE, $@, $(notdir $(OBJS)))
 
 .depend: Makefile $(SRCS)
@@ -61,6 +70,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, $(BIN))
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 
 distclean: clean

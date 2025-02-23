@@ -1360,3 +1360,7 @@ CONFIG_IOTBUS_UART=y
 # Security Framework
 #
 # CONFIG_SECURITY_API is not set
+
+# Enable parallel compilation
+CONFIG_MAKE_PARALLELISM=y
+CONFIG_MAKE_CORES=4

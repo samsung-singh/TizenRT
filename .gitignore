@@ -1,6 +1,9 @@
 .depend
 Make.dep
 .built
+.parallel
+.parallel2
+.u_parallel
 *.o
 *.a
 *.d

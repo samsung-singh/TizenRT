@@ -159,13 +159,22 @@ BIN = libdrivers$(LIBEXT)
 all: $(BIN)
 .PHONY: depend clean distclean
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-$(BIN): $(OBJS)
+$(BIN): $(PARALLELISM) $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 
 .depend: Makefile $(SRCS)
@@ -188,6 +197,7 @@ endif
 
 clean:
 	$(call DELFILE, $(BIN))
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 
 distclean: clean

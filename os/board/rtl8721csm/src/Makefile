@@ -203,13 +203,22 @@ endif
 
 all: libboard$(LIBEXT)
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS) $(LINKOBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-libboard$(LIBEXT): $(OBJS)
+libboard$(LIBEXT): $(PARALLELISM) $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 
 .depend: Makefile $(SRCS)
@@ -220,6 +229,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, libboard$(LIBEXT))
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 
 distclean: clean

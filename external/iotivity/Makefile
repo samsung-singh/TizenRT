@@ -288,6 +288,15 @@ all: libiotivity$(LIBEXT)
 
 .PHONY: depend clean distclean
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 libiotivity$(LIBEXT): $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 
@@ -300,7 +309,7 @@ $(COBJS): %$(OBJEXT): %.c
 $(CXXOBJS) $(MAINOBJ): %$(OBJEXT): %.cc
 	$(call COMPILEXX, $<, $@)
 
-.built: $(OBJS)
+.built: $(PARALLELISM) $(OBJS)
 	$(call ARCHIVE, $(BIN), $(OBJS))
 	$(Q) touch .built
 
@@ -312,6 +321,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, .built)
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 
 distclean: clean

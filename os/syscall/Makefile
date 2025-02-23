@@ -93,16 +93,31 @@ BIN2 = libstubs$(LIBEXT)
 all: $(BIN1) $(BIN2)
 .PHONY: context depend clean distclean
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(PROXY_OBJS)
+	$(Q) touch $@
+	
+PARALLELISM2 = .parallel2
+.parallel2:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(STUB_OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+PARALLELISM2 =
+endif
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-$(BIN1): $(PROXY_OBJS)
+$(BIN1): $(PARALLELISM) $(PROXY_OBJS)
 	$(call ARCHIVE, $@, $(PROXY_OBJS))
 
-$(BIN2): $(STUB_OBJS)
+$(BIN2): $(PARALLELISM2) $(STUB_OBJS)
 	$(call ARCHIVE, $@, $(STUB_OBJS))
 
 .depend: Makefile $(SRCS)
@@ -129,6 +144,8 @@ ifneq ($(OBJEXT),)
 	$(call DELFILE, proxies$(DELIM)*$(OBJEXT))
 	$(call DELFILE, stubs$(DELIM)*$(OBJEXT))
 endif
+	$(call DELFILE, $(PARALLELISM))
+	$(call DELFILE, $(PARALLELISM2))
 	$(call CLEAN)
 
 distclean: clean

@@ -178,6 +178,15 @@ VPATH		=
 all: .built
 .PHONY: depend clean distclean chkcxx
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 chkcxx:
 ifneq ($(CONFIG_HAVE_CXX),y)
 	@echo ""
@@ -199,7 +208,7 @@ $(COBJS): %$(OBJEXT): %.c
 $(CXXOBJS) $(MAINOBJ): %$(OBJEXT): %.cc
 	$(call COMPILEXX, $<, $@)
 
-.built: chkcxx $(OBJS)
+.built: $(PARALLELISM) chkcxx $(OBJS)
 	$(call ARCHIVE, $(BIN), $(OBJS))
 	$(Q) touch .built
 
@@ -211,6 +220,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, .built)
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 	$(Q) find . -name "*.o" -exec rm -rf {} \; # Tobe fixed
 

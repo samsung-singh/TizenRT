@@ -86,6 +86,15 @@ endif
 all: .built
 .PHONY: .depend clean depend distclean
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
@@ -95,7 +104,7 @@ $(COBJS): %$(OBJEXT): %.c
 $(CXXOBJS): %$(OBJEXT): %.cpp
 	$(call COMPILEXX, $<, $@)
 
-.built: $(OBJS)
+.built: $(PARALLELISM) $(OBJS)
 	$(call ARCHIVE, $(BIN), $(OBJS))
 	$(Q) touch .built
 
@@ -109,6 +118,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, .built)
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 
 distclean: clean

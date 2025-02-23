@@ -125,6 +125,15 @@ BIN ?= libc$(LIBEXT)
 all: $(BIN)
 .PHONY: clean distclean
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 $(AOBJS): $(BINDIR)$(DELIM)%$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 	$(call MOVEOBJ,$(patsubst $(BINDIR)$(DELIM)%$(OBJEXT),%,$@),$(BINDIR))
@@ -135,7 +144,7 @@ $(COBJS): $(BINDIR)$(DELIM)%$(OBJEXT): %.c
 
 # C library for the flat build
 
-$(BIN): $(OBJS)
+$(BIN): $(PARALLELISM) $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 
 ifeq ($(CONFIG_LIBC_DOWNLOAD_ZONEINFO),y)
@@ -186,6 +195,7 @@ clean:
 	$(call DELFILE, $(BIN))
 	$(call DELFILE, $(UBIN))
 	$(call DELFILE, $(KBIN))
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 
 # Deep clean -- removes all traces of the configuration

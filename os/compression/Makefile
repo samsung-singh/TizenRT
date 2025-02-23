@@ -69,6 +69,15 @@ BIN = libcompression$(LIBEXT)
 all: init $(BIN)
 .PHONY: init depend clean distclean
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(COMPRESSION_OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 init:
 ifeq ($(CONFIG_BUILD_PROTECTED),y)
 ifeq ($(CONFIG_COMPRESSION_TYPE),$(LZMA))
@@ -89,7 +98,7 @@ $(COMPRESSION_AOBJS): %$(OBJEXT): %.S
 $(COMPRESSION_COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-$(BIN): $(COMPRESSION_OBJS)
+$(BIN): $(PARALLELISM) $(COMPRESSION_OBJS)
 	$(call ARCHIVE, $@, $(COMPRESSION_OBJS))
 
 .depend: init Makefile $(COMPRESSION_SRCS)
@@ -100,6 +109,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, $(BIN))
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 	$(call DELDIR, $(LZMA_SRCDIR))
 	$(call DELDIR, $(MINIZ_SRCDIR))

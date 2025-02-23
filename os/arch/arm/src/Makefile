@@ -188,16 +188,33 @@ all: $(HEAD_OBJ) $(BIN)
 
 .PHONY: board$(DELIM)libboard$(LIBEXT)
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+
+U_PARALLELISM = .u_parallel
+.u_parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(UOBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+U_PARALLELISM = 
+endif
+	
+
+
 $(AOBJS) $(UAOBJS) $(HEAD_OBJ): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS) $(UCOBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-$(BIN) $(KBIN): $(OBJS)
+$(BIN) $(KBIN): $(PARALLELISM) $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 
-$(UBIN): $(UOBJS)
+$(UBIN): $(U_PARALLELISM) $(UOBJS)
 	$(call ARCHIVE, $@, $(UOBJS))
 
 board$(DELIM)libboard$(LIBEXT):
@@ -247,6 +264,8 @@ endif
 	$(call DELFILE, $(KBIN))
 	$(call DELFILE, $(UBIN))
 	$(call DELFILE, $(BIN))
+	$(call DELFILE, $(PARALLELISM))
+	$(call DELFILE, $(U_PARALLELISM))
 	$(call CLEAN)
 
 distclean: clean

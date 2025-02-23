@@ -219,13 +219,22 @@ endif
 
 all: libboard$(LIBEXT)
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 $(AOBJS): %$(OBJEXT): %$(ASMEXT)
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS) $(LINKOBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-libboard$(LIBEXT): $(OBJS)
+libboard$(LIBEXT): $(PARALLELISM) $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 ifeq ($(CONFIG_RTK_DATA_BINARY_TO_EXT_FLASH),y)
 	$(call build_ext_bin)
@@ -248,6 +257,7 @@ endef
 
 clean:
 	$(call DELFILE, libboard$(LIBEXT))
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 ifeq ($(CONFIG_RTK_DATA_BINARY_TO_EXT_FLASH),y)
 	$(call DELDIR, $(RESOURCE_TARGET_FOLDER))

@@ -150,13 +150,22 @@ all: $(STARTUP_OBJS) libarch$(LIBEXT) install
 
 .PHONY: board/libboard$(LIBEXT)
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 $(AOBJS) $(HEAD_AOBJ): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS) $(HEAD_COBJ): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-libarch$(LIBEXT): $(OBJS)
+libarch$(LIBEXT): $(PARALLELISM) $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 
 board/libboard$(LIBEXT):
@@ -217,6 +226,7 @@ ifeq ($(BOARDMAKE),y)
 	$(Q) $(MAKE) -C board TOPDIR="$(TOPDIR)" clean
 endif
 	$(call DELFILE, libarch$(LIBEXT))
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 
 distclean: clean

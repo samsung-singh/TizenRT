@@ -81,13 +81,22 @@ VPATH		=
 all: .built
 .PHONY: depend clean distclean
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS): %$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-.built: $(OBJS)
+.built: $(PARALLELISM) $(OBJS)
 	$(eval CMSIS_OBJS = $(wildcard *.o))
 	$(call ARCHIVE, $(BIN), $(OBJS))
 	$(Q) $(CROSSDEV)ar -rcs $(BIN) $(CMSIS_OBJS)
@@ -103,6 +112,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, .built)
+	$(call DELFILE, $(PARALLELISM))
 
 distclean: clean
 	$(call DELFILE, Make.dep)

@@ -94,6 +94,15 @@ BIN ?= libmm$(LIBEXT)
 all: $(BIN)
 .PHONY: clean distclean heap_regioninfo
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 $(AOBJS): $(BINDIR)$(DELIM)%$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 	$(call MOVEOBJ,$(patsubst $(BINDIR)$(DELIM)%$(OBJEXT),%,$@),$(BINDIR))
@@ -104,7 +113,7 @@ $(COBJS): $(BINDIR)$(DELIM)%$(OBJEXT): %.c
 
 # Memory manager for the flat build
 
-$(BIN):	$(OBJS)
+$(BIN): $(PARALLELISM) $(OBJS)
 	$(call ARCHIVE, $@, $(OBJS))
 
 # Memory manager for the user phase of the two-pass kernel build
@@ -158,6 +167,7 @@ clean:
 ifeq ($(CONFIG_HEAPINFO_USER_GROUP),y)
 	$(call DELFILE, $(TOPDIR)$(DELIM)include$(DELIM)tinyara$(DELIM)mm$(DELIM)heapinfo_internal.h)
 endif
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 
 # Deep clean -- removes all traces of the configuration

@@ -124,13 +124,22 @@ OBJS        = $(CXXOBJS) $(COBJS)
 all: $(SUBDIRS) .built
 .PHONY: .depend depend clean distclean
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 ECHO:
 	@echo $(SUBDIRS)
 
 $(SUBDIRS): ECHO
 	make -C $@
 
-.built: $(OBJS)
+.built: $(PARALLELISM) $(OBJS)
 	$(call ARCHIVE, $(BIN), $(OBJS))
 
 .depend: Makefile $(SRCS)
@@ -150,6 +159,7 @@ clean:
 	$(Q) $(MAKE) clean -C esp32
 	$(call DELFILE, $(OBJS))
 	$(call DELFILE, .built)
+	$(call DELFILE, $(PARALLELISM))
 
 distclean: clean
 	$(call DELFILE, Make.dep)

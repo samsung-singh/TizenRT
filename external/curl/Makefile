@@ -58,13 +58,22 @@ CFLAGS+= -D__TIZENRT__
 all: .built
 .PHONY: .depend depend clean distclean
 
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 $(AOBJS): %$(OBJEXT): %.S
 	$(call ASSEMBLE, $<, $@)
 
 $(COBJS): curl_%$(OBJEXT): %.c
 	$(call COMPILE, $<, $@)
 
-.built: $(OBJS)
+.built: $(PARALLELISM) $(OBJS)
 	cp curl-certificates.crt $(ROMFS_PATH)
 	$(call ARCHIVE, $(BIN), $(OBJS))
 	$(Q) touch .built
@@ -77,6 +86,7 @@ depend: .depend
 
 clean:
 	$(call DELFILE, .built)
+	$(call DELFILE, $(PARALLELISM))
 	$(call CLEAN)
 	$(call DELFILE, $(ROMFS_PATH)/curl-certificates.crt)
 

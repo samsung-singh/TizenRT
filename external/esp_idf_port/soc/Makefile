@@ -28,14 +28,25 @@ SOC_COBJS = $(SOC_CSRCS:.c=$(OBJEXT))
 BIN = libsoc$(LIBEXT)
 
 all: $(BIN)
+
+ifeq ($(CONFIG_MAKE_PARALLELISM),y)
+PARALLELISM = .parallel
+.parallel:
+	$(Q) $(MAKE) -j$(CONFIG_MAKE_CORES) $(OBJS)
+	$(Q) touch $@
+else
+PARALLELISM = 
+endif
+
 $(SOC_COBJS): %$(OBJEXT): %.c 
     $(call COMPILE, $<, $@)
 
-$(BIN): $(SOC_COBJS)
+$(BIN): $(PARALLELISM) $(SOC_COBJS)
 	$(call ARCHIVE, $@, $(SOC_COBJS))
 
 clean:
 	$(call DELFILE, $(BIN))
+	$(call DELFILE, $(PARALLELISM))
 	$(call DELFILE, $(SOC_COBJS))
 	$(call CLEAN)
 
